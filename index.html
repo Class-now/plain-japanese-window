@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>やさしい日本語の窓口 / Plain Japanese Window</title>
+<style>
+:root{--bg:#f6f8fb;--card:#fff;--ink:#1d2433;--sub:#5b6577;--accent:#1a73e8;--line:#dde3ee;--ok:#188038}
+@media(prefers-color-scheme:dark){:root{--bg:#12151c;--card:#1b2030;--ink:#e9edf5;--sub:#9aa5ba;--accent:#8ab4f8;--line:#2d3550;--ok:#81c995}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.7 system-ui,"Hiragino Sans",sans-serif}
+main{max-width:960px;margin:0 auto;padding:20px 16px 60px}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+h1{font-size:24px;margin:8px 0 2px}
+.sub{color:var(--sub);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:12px 0}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+select,input[type=password],input[type=file],textarea{font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+textarea{width:100%;min-height:110px}
+button{font:inherit;padding:10px 18px;border:0;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+button:disabled{opacity:.5}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:700px){.cols{grid-template-columns:1fr}}
+h2{font-size:15px;color:var(--sub);margin:0 0 6px}
+.todo{list-style:none;padding:0;margin:0}
+.todo li{padding:10px 12px;border-left:4px solid var(--ok);background:var(--bg);margin:8px 0;border-radius:6px}
+.todo b{display:block}
+.pill{display:inline-block;font-size:13px;padding:2px 10px;border-radius:99px;background:var(--bg);border:1px solid var(--line);color:var(--sub)}
+#status{color:var(--sub);min-height:1.5em}
+#mode{margin:8px 0 0}
+img#prev{max-width:100%;max-height:220px;border-radius:8px;display:none;margin-top:8px}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div>
+    <h1 id="t-title"></h1>
+    <p class="sub"><span id="t-sub"></span> <span class="pill">Powered by Gemini</span></p>
+  </div>
+  <button class="ghost" id="ui" type="button" aria-label="Language"></button>
+</header>
+
+<div class="card">
+  <div class="row">
+    <label><span id="t-lang"></span> <select id="lang">
+      <option value="English">English</option><option value="中文（简体）">中文（简体）</option><option value="Tiếng Việt">Tiếng Việt</option>
+      <option value="한국어">한국어</option><option value="Português">Português</option><option value="Español">Español</option><option value="Filipino">Filipino</option><option value="नेपाली">नेपाली</option>
+    </select></label>
+    <label><span id="t-key"></span> <input id="key" type="password" autocomplete="off"></label>
+  </div>
+  <p id="mode" class="sub"></p>
+  <p style="margin:12px 0 4px" id="t-pick"></p>
+  <input type="file" id="file" accept="image/*">
+  <img id="prev" alt="">
+  <textarea id="text"></textarea>
+  <div class="row" style="margin-top:10px">
+    <button id="go" type="button"></button>
+    <button id="sample" class="ghost" type="button"></button>
+    <span id="status" role="status"></span>
+  </div>
+</div>
+
+<div id="out" style="display:none">
+  <div class="cols">
+    <div class="card"><h2 id="t-easy"></h2><div id="easy"></div></div>
+    <div class="card"><h2 id="mt-title"></h2><div id="native"></div></div>
+  </div>
+  <div class="card"><h2 id="t-todo"></h2><ul class="todo" id="todo"></ul></div>
+</div>
+</main>
+
+<script>
+/* ---------- UI strings (ja / en) ---------- */
+const UI={
+ ja:{title:"やさしい日本語の窓口",sub:"手紙を撮るだけ。やさしい日本語、母語、そして「今日やること」が分かります。",
+  lang:"母語",key:"Gemini API キー（AI Studio）",keyPh:"未入力ならデモモード",pick:"手紙の写真を選ぶ、または文面を貼る",
+  textPh:"または文面をここに貼る",go:"読みとる",sample:"見本の手紙で試す",easy:"やさしい日本語",todo:"今日やること",
+  modeDemo:"デモモード: キーが無いので、見本の結果を表示します。キーを入れると Gemini が実際に読みます。",
+  modeLive:"Gemini モード: キーは このタブの中だけに置かれ、Google の API にだけ送られます。",
+  needInput:"写真か文面を入れてください",demoShown:"デモ表示（APIキー未入力）",demoFallback:"デモ表示（この母語の見本は英語です）",
+  working:"Gemini が読んでいます…",done:"Gemini で作成しました",error:"エラー: ",toggle:"English",noDeadline:"期限の記載なし"},
+ en:{title:"Plain Japanese Window",sub:"Just take a photo of the letter. Get plain Japanese, your own language, and a short list of what to do.",
+  lang:"Your language",key:"Gemini API key (AI Studio)",keyPh:"Leave empty for demo mode",pick:"Choose a photo of the letter, or paste its text",
+  textPh:"Or paste the text of the letter here",go:"Read it",sample:"Try a sample letter",easy:"Plain Japanese",todo:"What to do",
+  modeDemo:"Demo mode: no key is set, so a prepared sample result is shown. Add a key and Gemini will read your letter for real.",
+  modeLive:"Gemini mode: the key stays in this tab only and is sent only to Google's API.",
+  needInput:"Add a photo or some text first",demoShown:"Showing demo result (no API key)",demoFallback:"Showing demo result (the sample for this language is in English)",
+  working:"Gemini is reading...",done:"Made with Gemini",error:"Error: ",toggle:"日本語",noDeadline:"No deadline stated"}
+};
+let ui="ja";
+try{ const q=new URLSearchParams(location.search).get("ui"); const s=localStorage.getItem("ui");
+  ui=(q==="en"||q==="ja")?q:(s==="en"||s==="ja")?s:((navigator.language||"ja").toLowerCase().startsWith("ja")?"ja":"en"); }catch(e){}
+
+/* ---------- demo data ---------- */
+const SAMPLE_TEXT="国民健康保険料 納付のお知らせ\n令和8年度第6期分の保険料を下記のとおり納付してください。\n納付期限: 令和8年12月15日\n納付額: 12,400円\n納付場所: 区役所、銀行、コンビニエンスストア。ただし、同封の納付書をご持参ください。\n期限を過ぎると督促状を送付し、延滞金が加算されることがあります。";
+const DEMO_EASY="国民健康保険の　お金を　はらってください。\n12月15日までに　12,400円　をはらいます。\n同じふうとうに入っている　はらい込み用紙を　もって　銀行・コンビニ・区役所へ　行ってください。\nおくれると　おしらせが来て、お金が　ふえることが　あります。";
+const DEMO_TODO_JA=[
+ {what:"12,400円を用意する",when:"12月15日まで"},
+ {what:"封筒の中の納付書を持つ",when:"払いに行く日"},
+ {what:"銀行・コンビニ・区役所で払う",when:"12月15日まで"}];
+const DEMO={
+ "English":{native:"Please pay your National Health Insurance premium.\nPay 12,400 yen by December 15.\nTake the payment slip from the envelope to a bank, convenience store, or ward office.\nIf you are late, you will get a reminder and may owe extra fees.",
+  notes:["Prepare 12,400 yen","Bring the payment slip from the envelope","Pay at a bank, convenience store, or ward office"]},
+ "中文（简体）":{native:"请缴纳国民健康保险费。\n请在12月15日之前缴纳12,400日元。\n请带上信封里的缴费单，到银行、便利店或区役所缴费。\n如果逾期，会收到催缴通知，并可能产生滞纳金。",
+  notes:["准备12,400日元","带上信封里的缴费单","在银行、便利店或区役所缴费"]},
+ "Tiếng Việt":{native:"Vui lòng đóng phí bảo hiểm y tế quốc dân.\nĐóng 12.400 yên trước ngày 15 tháng 12.\nMang phiếu thanh toán trong phong bì đến ngân hàng, cửa hàng tiện lợi hoặc văn phòng quận để đóng.\nNếu trễ hạn, bạn sẽ nhận được thư nhắc và có thể phải trả thêm phí.",
+  notes:["Chuẩn bị 12.400 yên","Mang theo phiếu thanh toán trong phong bì","Đóng tại ngân hàng, cửa hàng tiện lợi hoặc văn phòng quận"]}
+};
+
+const $=id=>document.getElementById(id);
+function esc(s){return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+let imgB64=null,imgMime=null,lastData=null;
+
+function applyUI(){
+  const s=UI[ui]; document.documentElement.lang=ui;
+  $("t-title").textContent=s.title; $("t-sub").textContent=s.sub; $("t-lang").textContent=s.lang; $("t-key").textContent=s.key;
+  $("key").placeholder=s.keyPh; $("t-pick").textContent=s.pick; $("text").placeholder=s.textPh;
+  $("go").textContent=s.go; $("sample").textContent=s.sample; $("t-easy").textContent=s.easy; $("t-todo").textContent=s.todo;
+  $("ui").textContent=s.toggle; refreshMode();
+  if(lastData) render(lastData.d,lastData.lang);
+}
+function refreshMode(){ $("mode").textContent=$("key").value.trim()?UI[ui].modeLive:UI[ui].modeDemo; }
+$("ui").onclick=()=>{ ui=ui==="ja"?"en":"ja"; try{localStorage.setItem("ui",ui)}catch(e){} applyUI(); };
+$("key").oninput=refreshMode;
+try{ $("key").value=sessionStorage.getItem("gk")||""; }catch(e){}
+
+$("file").onchange=e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{ $("prev").src=r.result; $("prev").style.display="block"; imgMime=f.type; imgB64=r.result.split(",")[1]; };
+  r.readAsDataURL(f);
+};
+
+function render(d,lang){
+  lastData={d,lang};
+  $("mt-title").textContent=lang;
+  $("easy").innerHTML=esc(d.easy).replace(/\n/g,"<br>");
+  $("native").innerHTML=esc(d.native).replace(/\n/g,"<br>");
+  $("todo").innerHTML=(d.todo||[]).slice(0,3).map(t=>`<li><b>${esc(t.what)}</b>${esc(t.when)}<br><span style="color:var(--sub)">${esc(t.note)}</span></li>`).join("");
+  $("out").style.display="block";
+}
+function demo(lang){
+  const m=DEMO[lang]||DEMO["English"];
+  render({easy:DEMO_EASY,native:m.native,todo:DEMO_TODO_JA.map((t,i)=>({...t,note:m.notes[i]}))},lang);
+  $("status").textContent=DEMO[lang]?UI[ui].demoShown:UI[ui].demoFallback;
+}
+
+$("sample").onclick=()=>{ $("text").value=SAMPLE_TEXT; imgB64=null; if(!$("key").value.trim()) demo($("lang").value); else run(); };
+$("go").onclick=run;
+
+const MODELS=["gemini-flash-latest","gemini-3.5-flash","gemini-3.8-flash","gemini-2.5-flash"];
+async function run(){
+  const key=$("key").value.trim(), lang=$("lang").value, text=$("text").value.trim(), s=UI[ui];
+  if(!imgB64&&!text){ $("status").textContent=s.needInput; return; }
+  if(!key){ demo(lang); return; }
+  try{sessionStorage.setItem("gk",key)}catch(e){}
+  $("go").disabled=true; $("status").textContent=s.working;
+  const sys=`あなたは日本に住む外国人を助ける窓口の係です。入力された手紙・お知らせから次を作ります。
+1) easy: 「やさしい日本語」。一文を短く、難しい語は言い換え、漢字はひらがな中心。
+2) native: ${lang} への自然な翻訳（要点がそのまま分かること）。
+3) todo: 「いつまでに・何をするか」を最大3つ。each = {what: やることを やさしい日本語で, when: 期限や時期（書かれていなければ「${UI.ja.noDeadline}」。推測しない）, note: ${lang} での説明}。
+文面に無いことを足さない。JSON だけで答える。`;
+  const parts=[{text:sys}];
+  if(imgB64) parts.push({inline_data:{mime_type:imgMime,data:imgB64}});
+  if(text) parts.push({text:"手紙の文面:\n"+text});
+  const schema={type:"OBJECT",properties:{easy:{type:"STRING"},native:{type:"STRING"},todo:{type:"ARRAY",items:{type:"OBJECT",properties:{what:{type:"STRING"},when:{type:"STRING"},note:{type:"STRING"}},required:["what","when","note"]}}},required:["easy","native","todo"]};
+  try{
+    // Try current Flash models in order; skip one that is retired (404) or busy (429/503).
+    const body=JSON.stringify({contents:[{parts}],generationConfig:{responseMimeType:"application/json",responseSchema:schema}});
+    let res;
+    for(const m of MODELS){
+      res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+m+":generateContent",{
+        method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},body});
+      if(res.ok||![404,429,500,503].includes(res.status)) break;
+    }
+    if(!res.ok) throw new Error(res.status+" "+(await res.text()).slice(0,200));
+    const j=await res.json();
+    render(JSON.parse(j.candidates[0].content.parts[0].text),lang);
+    $("status").textContent=s.done;
+  }catch(e){ $("status").textContent=s.error+e.message; }
+  $("go").disabled=false;
+}
+applyUI();
+</script>
+</body>
+</html>
