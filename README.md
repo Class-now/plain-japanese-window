@@ -22,7 +22,7 @@ open index.html          # or: python3 -m http.server 8000
 
 ## How it works
 
-One call to Gemini Flash (`gemini-flash-latest`, falling back to other current Flash models if one is busy) with the photo (inline image) and/or pasted text, a system prompt, and a JSON response schema (`easy`, `native`, `todo[{what, when, note}]`). The page renders the JSON in three panels. The code is in `index.html` (about 200 lines).
+One call to Gemini Flash (`gemini-3.5-flash`, falling back to other current Flash models if one is busy) with the photo (inline image) and/or pasted text, a system prompt, and a JSON response schema (`easy`, `native`, `todo[{what, when, note}]`). The page renders the JSON in three panels. The code is in `index.html` (about 200 lines).
 
 ## Limits
 

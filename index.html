@@ -150,7 +150,7 @@ function demo(lang){
 $("sample").onclick=()=>{ $("text").value=SAMPLE_TEXT; imgB64=null; if(!$("key").value.trim()) demo($("lang").value); else run(); };
 $("go").onclick=run;
 
-const MODELS=["gemini-flash-latest","gemini-3.5-flash","gemini-3.8-flash","gemini-2.5-flash"];
+const MODELS=["gemini-3.5-flash","gemini-flash-latest","gemini-3.8-flash","gemini-2.5-flash"];
 async function run(){
   const key=$("key").value.trim(), lang=$("lang").value, text=$("text").value.trim(), s=UI[ui];
   if(!imgB64&&!text){ $("status").textContent=s.needInput; return; }
@@ -171,9 +171,11 @@ async function run(){
     const body=JSON.stringify({contents:[{parts}],generationConfig:{responseMimeType:"application/json",responseSchema:schema}});
     let res;
     for(const m of MODELS){
-      res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+m+":generateContent",{
-        method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},body});
-      if(res.ok||![404,429,500,503].includes(res.status)) break;
+      const ac=new AbortController(), tm=setTimeout(()=>ac.abort(),30000);
+      try{ res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+m+":generateContent",{signal:ac.signal,
+        method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},body}); }catch(e){ res={ok:false,status:504,text:async()=>"timeout ("+m+")"}; }
+      clearTimeout(tm);
+      if(res.ok||![404,429,500,503,504].includes(res.status)) break;
     }
     if(!res.ok) throw new Error(res.status+" "+(await res.text()).slice(0,200));
     const j=await res.json();
